@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 int main(int argc, char **argv)
 {
@@ -27,7 +28,7 @@ int main(int argc, char **argv)
     if (img != NULL) {
         printf("got image @(%d, %d)\n", ptr_x, ptr_y);
         color = XGetPixel(img, 0, 0);
-        printf("#%08x\n", color);
+        printf("#%08lx\n", color);
         XFree(img);
     }
     else {

@@ -11,6 +11,7 @@ struct {
     unsigned long int size;
     int show_version;
     int show_help;
+    int multiple;
     char format[256];
 } config;
 
@@ -29,7 +30,9 @@ void config_set_defaults(void)
 {
     config.show_version = 0;
     config.show_help = 0;
+    config.multiple = 0;
     config.size = 1;
+    strcpy(config.format, "html");
 }
 
 /* read command line parameters; return 0 if everything’s fine */
@@ -42,16 +45,19 @@ int init(int argc, char **argv)
         { "help", no_argument, NULL, 'h' },
         { "size", required_argument, NULL, 's' },
         { "format", required_argument, NULL, 'f' },
+        { "multiple", no_argument, NULL, 'm' },
         { NULL, 0, NULL, 0 }
     };
 
-    while ((o = getopt_long(argc, argv, "vhs:", long_options, &option_index)) != -1) {
+    while ((o = getopt_long(argc, argv, "vhs:f:m", long_options, &option_index)) != -1) {
         if ((char)o == 'v')
             config.show_version = 1;
         else if ((char)o == 'h')
             config.show_help = 1;
         else if ((char)o == 's')
             config.size = strtoul(optarg, NULL, 10);
+        else if ((char)o == 'm')
+            config.multiple = 1;
         else if ((char)o == 'f') {
             strncpy(config.format, optarg, 255);
             config.format[255] = '\0';
@@ -213,6 +219,19 @@ void print_help(void)
 {
 }
 
+void output_color_from_pos(int x, int y)
+{
+    struct Sample sample;
+    uint32_t color;
+
+    get_sample(x_display, x_root_window, x, y, 1, &sample);
+    color = get_sample_value(&sample, 0);
+    free_sample(&sample);
+
+    output_color(color);
+
+}
+
 int main(int argc, char **argv)
 {
     if (init(argc, argv) != 0)
@@ -231,16 +250,26 @@ int main(int argc, char **argv)
     if (x_init() != 0)
         return 1;
 
-    int ptr_x, ptr_y;
-    struct Sample sample;
-    uint32_t color;
+    XGrabPointer(x_display, x_root_window,
+            False, ButtonReleaseMask, GrabModeAsync, GrabModeAsync, x_root_window, None, CurrentTime);
 
-    get_pointer_position(&ptr_x, &ptr_y);
-    get_sample(x_display, x_root_window, ptr_x, ptr_y, 1, &sample);
-    color = get_sample_value(&sample, 0);
-    free_sample(&sample);
+    XEvent event;
+    while (1) {
+        XNextEvent(x_display, &event);
+        if (event.type == ButtonRelease) {
+            if (event.xbutton.button == 1) {
+                output_color_from_pos(event.xbutton.x_root, event.xbutton.y_root);
+                if (!config.multiple)
+                    break;
+            }
+            else if (event.xbutton.button == 3) {
+                break;
+            }
 
-    output_color(color);
+        }
+    }
+
+    XUngrabPointer(x_display, CurrentTime);
 
     return 0;
 }
